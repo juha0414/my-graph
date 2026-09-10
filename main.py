@@ -1,6 +1,5 @@
 
 import streamlit as st
-import requests
 import pandas as pd
 import plotly.express as px
 
@@ -16,14 +15,20 @@ st.set_page_config(
 )
 
 st.title("🎬 영화 데이터 그래프 도감 1 - 시간")
-st.write("1년치 일별 박스오피스 데이터를 이용해 영화 데이터의 시간에 따른 변화를 살펴봅니다.")
+st.write(
+    "1년치 일별 박스오피스 데이터를 이용해 "
+    "영화 데이터의 시간에 따른 변화를 살펴봅니다."
+)
 
 
 # ============================================================
 # 데이터 불러오기
 # ============================================================
 
-DATA_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/kobis_daily.csv"
+DATA_URL = (
+    "https://raw.githubusercontent.com/greatsong/modudata/"
+    "main/data/kobis_daily.csv"
+)
 
 
 @st.cache_data
@@ -94,13 +99,15 @@ with col3:
 
 # ============================================================
 # 그래프 1
+# 영화별 일관객 변화
 # ============================================================
 
 st.divider()
 st.header("📈 그래프 1. 영화별 일관객 변화")
 
 st.write(
-    "영화를 하나 선택하면 그 영화의 날짜별 일관객 변화를 확인할 수 있습니다."
+    "영화를 하나 선택하면 그 영화의 날짜별 일관객 변화를 "
+    "확인할 수 있습니다."
 )
 
 
@@ -124,10 +131,10 @@ movie_df = movie_df.sort_values("날짜")
 
 
 # ============================================================
-# 선 그래프
+# 그래프 1 선 그래프
 # ============================================================
 
-fig = px.line(
+fig1 = px.line(
     movie_df,
     x="날짜",
     y="일관객",
@@ -139,52 +146,148 @@ fig = px.line(
     }
 )
 
-fig.update_traces(
+fig1.update_traces(
     hovertemplate=
     "날짜: %{x|%Y년 %m월 %d일}"
     "<br>관객수: %{y:,}명"
     "<extra></extra>"
 )
 
-fig.update_layout(
+fig1.update_layout(
     xaxis_title="날짜",
     yaxis_title="일관객 수",
     hovermode="x unified"
 )
 
 st.plotly_chart(
-    fig,
+    fig1,
     use_container_width=True
 )
 
 
 # ============================================================
-# 그래프 해석 직접 입력
+# 그래프 1 해석 직접 입력
 # ============================================================
 
 st.subheader("💡 이 그래프로 알 수 있는 것")
 
 st.text_area(
     "그래프를 보고 알 수 있는 내용을 직접 입력하세요.",
-    placeholder="예: 영화의 일관객은 개봉 직후 가장 높았고 이후 점차 감소하는 모습을 보인다.",
+    placeholder="여기에 직접 입력하세요.",
     height=100,
     key="graph1_explanation"
 )
 
 
 # ============================================================
-# 그래프 2 영역
+# 그래프 2
+# 기간 내 일관객 합계가 가장 큰 5편
 # ============================================================
 
 st.divider()
-st.header("📊 그래프 2")
+st.header("📈 그래프 2. 일관객 합계가 가장 큰 영화 5편")
 
-st.write("다음 그래프를 이곳에 추가할 수 있습니다.")
+st.write(
+    "전체 기간 동안 일관객을 모두 합산하여 "
+    "합계가 가장 큰 5편의 날짜별 일관객 변화를 비교합니다."
+)
+
+
+# ============================================================
+# 영화별 전체 기간 일관객 합계 계산
+# ============================================================
+
+movie_total = (
+    df.groupby("영화명", as_index=False)["일관객"]
+    .sum()
+    .sort_values(
+        "일관객",
+        ascending=False
+    )
+)
+
+# 일관객 합계가 가장 큰 5편
+top5_movies = movie_total.head(5)["영화명"].tolist()
+
+
+# ============================================================
+# TOP 5 영화의 날짜별 데이터
+# ============================================================
+
+top5_df = df[
+    df["영화명"].isin(top5_movies)
+].copy()
+
+top5_df = top5_df.sort_values(
+    ["날짜", "영화명"]
+)
+
+
+# ============================================================
+# 그래프 2 선 그래프
+# ============================================================
+
+fig2 = px.line(
+    top5_df,
+    x="날짜",
+    y="일관객",
+    color="영화명",
+    markers=True,
+    title="기간 내 일관객 합계 TOP 5 영화의 날짜별 일관객",
+    labels={
+        "날짜": "날짜",
+        "일관객": "일관객 수",
+        "영화명": "영화"
+    }
+)
+
+fig2.update_traces(
+    hovertemplate=
+    "영화: %{fullData.name}"
+    "<br>날짜: %{x|%Y년 %m월 %d일}"
+    "<br>관객수: %{y:,}명"
+    "<extra></extra>"
+)
+
+fig2.update_layout(
+    xaxis_title="날짜",
+    yaxis_title="일관객 수",
+    hovermode="x unified",
+    legend_title="영화"
+)
+
+st.plotly_chart(
+    fig2,
+    use_container_width=True
+)
+
+
+# ============================================================
+# 그래프 2 선정 영화 확인
+# ============================================================
+
+st.subheader("🏆 일관객 합계 TOP 5")
+
+for i, movie in enumerate(top5_movies, start=1):
+    total = movie_total.loc[
+        movie_total["영화명"] == movie,
+        "일관객"
+    ].iloc[0]
+
+    st.write(
+        f"**{i}위. {movie}** — "
+        f"기간 일관객 합계: {total:,.0f}명"
+    )
+
+
+# ============================================================
+# 그래프 2 해석 직접 입력
+# ============================================================
 
 st.subheader("💡 이 그래프로 알 수 있는 것")
 
 st.text_area(
-    "그래프 2에서 알 수 있는 내용을 직접 입력하세요.",
+    "그래프를 보고 알 수 있는 내용을 직접 입력하세요.",
     placeholder="여기에 직접 입력하세요.",
     height=100,
     key="graph2_explanation"
@@ -198,7 +301,9 @@ st.text_area(
 st.divider()
 st.header("📊 그래프 3")
 
-st.write("다음 그래프를 이곳에 추가할 수 있습니다.")
+st.write(
+    "다음 그래프를 이곳에 추가할 수 있습니다."
+)
 
 st.subheader("💡 이 그래프로 알 수 있는 것")
 
@@ -208,4 +313,3 @@ st.text_area(
     height=100,
     key="graph3_explanation"
 )
-
