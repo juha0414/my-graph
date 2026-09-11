@@ -1,5 +1,4 @@
 
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -101,7 +100,7 @@ with col3:
 
 # ============================================================
 # 그래프 1
-# 영화별 일관객 변화
+# 영화별 날짜에 따른 일관객 변화
 # ============================================================
 
 st.divider()
@@ -112,6 +111,8 @@ st.write(
     "확인할 수 있습니다."
 )
 
+
+# 영화 선택
 movie_list = sorted(
     df["영화명"].dropna().unique()
 )
@@ -121,6 +122,8 @@ selected_movie = st.selectbox(
     movie_list
 )
 
+
+# 선택한 영화 데이터
 movie_df = df[
     df["영화명"] == selected_movie
 ].copy()
@@ -128,6 +131,7 @@ movie_df = df[
 movie_df = movie_df.sort_values("날짜")
 
 
+# 그래프 1
 fig1 = px.line(
     movie_df,
     x="날짜",
@@ -159,7 +163,7 @@ st.plotly_chart(
 )
 
 
-# 그래프 1 해석
+# 그래프 1 해석 입력
 st.subheader("💡 이 그래프로 알 수 있는 것")
 
 st.text_area(
@@ -170,5 +174,397 @@ st.text_area(
 )
 
 
-# ======================================
+# ============================================================
+# 그래프 2
+# 기간 일관객 합계 TOP 5 영화
+# ============================================================
+
+st.divider()
+st.header("📈 그래프 2. 일관객 합계가 가장 큰 영화 5편")
+
+st.write(
+    "이 기간 동안 일관객을 모두 더해 "
+    "합계가 가장 큰 5편의 날짜별 일관객을 비교합니다."
+)
+
+
+# 영화별 기간 일관객 합계
+movie_total = (
+    df.groupby("영화명", as_index=False)["일관객"]
+    .sum()
+    .sort_values(
+        "일관객",
+        ascending=False
+    )
+)
+
+# TOP 5
+top5_movies = movie_total.head(5)["영화명"].tolist()
+
+
+# TOP 5 영화의 날짜별 데이터
+top5_df = df[
+    df["영화명"].isin(top5_movies)
+].copy()
+
+top5_df = top5_df.sort_values(
+    ["날짜", "영화명"]
+)
+
+
+# 그래프 2
+fig2 = px.line(
+    top5_df,
+    x="날짜",
+    y="일관객",
+    color="영화명",
+    markers=True,
+    title="기간 일관객 합계 TOP 5 영화의 날짜별 일관객",
+    labels={
+        "날짜": "날짜",
+        "일관객": "일관객 수",
+        "영화명": "영화"
+    }
+)
+
+fig2.update_traces(
+    hovertemplate=
+    "영화: %{fullData.name}"
+    "<br>날짜: %{x|%Y년 %m월 %d일}"
+    "<br>관객수: %{y:,}명"
+    "<extra></extra>"
+)
+
+fig2.update_layout(
+    xaxis_title="날짜",
+    yaxis_title="일관객 수",
+    hovermode="x unified",
+    legend_title="영화"
+)
+
+st.plotly_chart(
+    fig2,
+    use_container_width=True
+)
+
+
+# TOP 5 목록
+st.subheader("🏆 일관객 합계 TOP 5")
+
+for i, movie in enumerate(top5_movies, start=1):
+
+    total = movie_total.loc[
+        movie_total["영화명"] == movie,
+        "일관객"
+    ].iloc[0]
+
+    st.write(
+        f"**{i}위. {movie}** — "
+        f"기간 일관객 합계: {total:,.0f}명"
+    )
+
+
+# 그래프 2 해석 입력
+st.subheader("💡 이 그래프로 알 수 있는 것")
+
+st.text_area(
+    "그래프를 보고 알 수 있는 내용을 직접 입력하세요.",
+    placeholder="여기에 직접 입력하세요.",
+    height=100,
+    key="graph2_explanation"
+)
+
+
+# ============================================================
+# 그래프 3
+# 날짜별 10위권 일관객 합계
+# ============================================================
+
+st.divider()
+st.header("📊 그래프 3. 날짜별 10위권 일관객 합계")
+
+st.write(
+    "각 날짜의 10위권 영화들의 일관객을 모두 더해 "
+    "날짜별 관객 규모의 변화를 보여줍니다."
+)
+
+
+# 날짜별 10위권 일관객 합계
+daily_total = (
+    df.groupby("날짜", as_index=False)["일관객"]
+    .sum()
+    .sort_values("날짜")
+)
+
+
+# 일관객 합계가 가장 큰 날 TOP 3
+top3_days = (
+    daily_total
+    .nlargest(3, "일관객")
+    .sort_values("날짜")
+)
+
+
+# ------------------------------------------------------------
+# 영역 그래프
+# ------------------------------------------------------------
+
+fig3 = go.Figure()
+
+
+fig3.add_trace(
+    go.Scatter(
+        x=daily_total["날짜"],
+        y=daily_total["일관객"],
+        mode="lines",
+        name="10위권 일관객 합계",
+        fill="tozeroy",
+        hovertemplate=
+        "날짜: %{x|%Y년 %m월 %d일}"
+        "<br>10위권 일관객 합계: %{y:,}명"
+        "<extra></extra>"
+    )
+)
+
+
+# ------------------------------------------------------------
+# 가장 큰 3일 표시
+# ------------------------------------------------------------
+
+fig3.add_trace(
+    go.Scatter(
+        x=top3_days["날짜"],
+        y=top3_days["일관객"],
+        mode="markers+text",
+        name="합계 TOP 3",
+        text=[
+            date.strftime("%Y년 %m월 %d일")
+            for date in top3_days["날짜"]
+        ],
+        textposition="top center",
+        marker=dict(
+            size=10
+        ),
+        hovertemplate=
+        "날짜: %{x|%Y년 %m월 %d일}"
+        "<br>10위권 일관객 합계: %{y:,}명"
+        "<extra></extra>"
+    )
+)
+
+
+fig3.update_layout(
+    title="날짜별 10위권 일관객 합계",
+    xaxis_title="날짜",
+    yaxis_title="10위권 일관객 합계",
+    hovermode="x unified"
+)
+
+
+st.plotly_chart(
+    fig3,
+    use_container_width=True
+)
+
+
+# TOP 3 날짜 목록
+st.subheader("🏆 10위권 일관객 합계가 가장 컸던 날")
+
+top3_display = (
+    top3_days
+    .sort_values(
+        "일관객",
+        ascending=False
+    )
+    .reset_index(drop=True)
+)
+
+for i, row in top3_display.iterrows():
+
+    date_text = row["날짜"].strftime(
+        "%Y년 %m월 %d일"
+    )
+
+    st.write(
+        f"**{i + 1}위. {date_text}** — "
+        f"10위권 일관객 합계: {row['일관객']:,.0f}명"
+    )
+
+
+# 그래프 3 해석 입력
+st.subheader("💡 이 그래프로 알 수 있는 것")
+
+st.text_area(
+    "그래프를 보고 알 수 있는 내용을 직접 입력하세요.",
+    placeholder="여기에 직접 입력하세요.",
+    height=100,
+    key="graph3_explanation"
+)
+
+
+# ============================================================
+# 그래프 4
+# 영화별 기간 일관객 TOP 10
+# ============================================================
+
+st.divider()
+st.header("📊 그래프 4. 영화별 기간 일관객 TOP 10")
+
+st.write(
+    "이 기간 동안 영화별 일관객을 모두 더해 "
+    "관객수가 가장 많은 영화 10편을 비교합니다."
+)
+
+
+# ------------------------------------------------------------
+# 영화별 일관객 합계와 10위권에 든 날수 계산
+# ------------------------------------------------------------
+
+movie_summary = (
+    df.groupby("영화명")
+    .agg(
+        일관객합계=("일관객", "sum"),
+        top10_날수=("날짜", "nunique")
+    )
+    .reset_index()
+)
+
+
+# 일관객 합계 TOP 10
+top10_movies = (
+    movie_summary
+    .sort_values(
+        "일관객합계",
+        ascending=False
+    )
+    .head(10)
+    .copy()
+)
+
+
+# ------------------------------------------------------------
+# 가로 막대그래프
+# ------------------------------------------------------------
+
+# 그래프에서 관객이 많은 영화가 위에 오도록
+top10_graph = top10_movies.sort_values(
+    "일관객합계",
+    ascending=True
+)
+
+
+fig4 = px.bar(
+    top10_graph,
+    x="일관객합계",
+    y="영화명",
+    orientation="h",
+    title="영화별 기간 일관객 TOP 10",
+    labels={
+        "일관객합계": "기간 일관객 합계",
+        "영화명": "영화"
+    },
+    custom_data=["top10_날수"]
+)
+
+
+# 마우스를 올렸을 때 표시되는 내용
+fig4.update_traces(
+    hovertemplate=
+    "영화: %{y}"
+    "<br>기간 일관객 합계: %{x:,}명"
+    "<br>10위권에 든 날수: %{customdata[0]}일"
+    "<extra></extra>"
+)
+
+
+fig4.update_layout(
+    xaxis_title="기간 일관객 합계",
+    yaxis_title="영화",
+    yaxis={
+        "categoryorder": "total ascending"
+    },
+    hovermode="closest"
+)
+
+
+st.plotly_chart(
+    fig4,
+    use_container_width=True
+)
+
+
+# ------------------------------------------------------------
+# TOP 10 목록
+# ------------------------------------------------------------
+
+st.subheader("🏆 기간 일관객 TOP 10")
+
+top10_table = (
+    top10_movies
+    .sort_values(
+        "일관객합계",
+        ascending=False
+    )
+    .reset_index(drop=True)
+)
+
+top10_table.index = top10_table.index + 1
+
+top10_table = top10_table.rename(
+    columns={
+        "영화명": "영화",
+        "일관객합계": "기간 일관객 합계",
+        "top10_날수": "10위권에 든 날수"
+    }
+)
+
+top10_table["기간 일관객 합계"] = (
+    top10_table["기간 일관객 합계"]
+    .map(lambda x: f"{x:,.0f}명")
+)
+
+top10_table["10위권에 든 날수"] = (
+    top10_table["10위권에 든 날수"]
+    .map(lambda x: f"{x}일")
+)
+
+st.dataframe(
+    top10_table,
+    use_container_width=True
+)
+
+
+# ------------------------------------------------------------
+# 그래프 4 해석 입력
+# ------------------------------------------------------------
+
+st.subheader("💡 이 그래프로 알 수 있는 것")
+
+st.text_area(
+    "그래프를 보고 알 수 있는 내용을 직접 입력하세요.",
+    placeholder="여기에 직접 입력하세요.",
+    height=100,
+    key="graph4_explanation"
+)
+
+
+# ============================================================
+# 다음 그래프를 위한 공간
+# ============================================================
+
+st.divider()
+st.header("📊 그래프 5")
+
+st.write(
+    "다음 그래프를 이곳에 추가할 수 있습니다."
+)
+
+st.subheader("💡 이 그래프로 알 수 있는 것")
+
+st.text_area(
+    "그래프를 보고 알 수 있는 내용을 직접 입력하세요.",
+    placeholder="여기에 직접 입력하세요.",
+    height=100,
+    key="graph5_explanation"
+)
 
